@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DOOM.JS — Multiplayer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;font-family:'Courier New',monospace;overflow:hidden}
+#app{width:100%;height:100%;position:relative}
+#lobby{position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0000 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+#lobby h1{color:#ff2200;font-size:64px;letter-spacing:10px;text-shadow:0 0 30px #f00,0 0 60px #800;margin-bottom:4px;animation:pulse 2s infinite}
+#lobby .sub{color:#555;font-size:12px;letter-spacing:4px;margin-bottom:32px}
+@keyframes pulse{0%,100%{text-shadow:0 0 20px #f00,0 0 40px #600}50%{text-shadow:0 0 50px #f00,0 0 100px #800}}
+.lcard{background:rgba(15,0,0,0.95);border:1px solid #500;padding:28px 34px;width:410px}
+.lcard h2{color:#900;font-size:10px;letter-spacing:4px;margin-bottom:12px;border-bottom:1px solid #300;padding-bottom:6px}
+.row{display:flex;gap:8px;margin-bottom:9px}
+input{background:#080808;border:1px solid #400;color:#f55;font-family:'Courier New',monospace;font-size:13px;padding:8px 11px;flex:1;outline:none;letter-spacing:1px}
+input:focus{border-color:#a00}
+.btn{background:#100000;border:1px solid #700;color:#e00;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;padding:8px 12px;cursor:pointer;text-transform:uppercase;white-space:nowrap;transition:all .15s}
+.btn:hover{background:#200000;border-color:#f00;color:#fff}
+.btn.go{background:#a00;color:#fff;border-color:#f00}.btn.go:hover{background:#e00}
+.divider{text-align:center;color:#300;font-size:10px;letter-spacing:3px;margin:13px 0}
+#pubList{max-height:100px;overflow-y:auto;border:1px solid #200;margin-bottom:8px}
+.ri{display:flex;justify-content:space-between;padding:6px 9px;border-bottom:1px solid #180;cursor:pointer}
+.ri:hover{background:#150000}
+.rn{color:#f66;font-size:12px;letter-spacing:1px}
+.rm{color:#555;font-size:10px}
+#status{color:#f80;font-size:11px;margin-top:10px;min-height:15px}
+#myid{color:#2a2a2a;font-size:9px;margin-top:5px;word-break:break-all}
+.tip{color:#2a2a2a;font-size:10px;letter-spacing:1px;margin-top:12px;text-align:center}
+#gw{position:absolute;inset:0;display:none}
+#gc{display:block;width:100%;height:100%;position:absolute;top:0;left:0;cursor:crosshair}
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:8px 12px;z-index:10;pointer-events:none}
+.hb{background:rgba(0,0,0,0.88);border:1px solid #600;color:#f33;font-size:13px;font-weight:bold;padding:4px 13px;letter-spacing:2px}
+#mm{position:absolute;bottom:10px;right:10px;z-index:10;border:1px solid #500}
+#xhair{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);pointer-events:none;z-index:10}
+#flash{position:absolute;inset:0;background:#f33;pointer-events:none;z-index:50;opacity:0;transition:opacity .07s}
+#kmsg{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);color:#f00;font-size:21px;font-weight:bold;opacity:0;pointer-events:none;z-index:20;letter-spacing:3px;text-shadow:0 0 12px #f00}
+#rbar{position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);border:1px solid #400;color:#700;font-size:10px;letter-spacing:2px;padding:3px 14px;z-index:10;pointer-events:none;white-space:nowrap}
+#plist{position:absolute;top:44px;right:10px;z-index:10;background:rgba(0,0,0,.88);border:1px solid #400;padding:7px 11px;min-width:120px}
+#plist .pt{color:#600;font-size:9px;letter-spacing:3px;border-bottom:1px solid #300;padding-bottom:4px;margin-bottom:5px}
+.pe{font-size:11px;color:#f77;margin-bottom:2px;display:flex;justify-content:space-between;gap:8px}
+.pe .pn{color:#f33}
+#chatBox{position:absolute;bottom:10px;left:10px;z-index:15;width:280px}
+#chatLog{background:rgba(0,0,0,.82);border:1px solid #400;border-bottom:none;height:110px;overflow-y:auto;padding:7px}
+.cm{font-size:11px;line-height:1.55;color:#f88;margin-bottom:1px}
+.cm .cn{font-weight:bold}
+.cm.sy{color:#444;font-style:italic}
+#crow{display:flex}
+#cin{background:#080808;border:1px solid #400;border-right:none;color:#f88;font-family:'Courier New',monospace;font-size:11px;padding:5px 9px;flex:1;outline:none}
+#cin:focus{border-color:#800}
+#csnd{background:#130000;border:1px solid #500;color:#f00;font-family:'Courier New',monospace;font-size:10px;padding:5px 9px;cursor:pointer}
+#shootBtn{position:absolute;bottom:150px;right:20px;z-index:20;background:rgba(150,0,0,.85);border:3px solid #f00;color:#fff;font-size:28px;width:80px;height:80px;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#shootBtn:active{background:rgba(255,0,0,.95);transform:scale(.9)}
+#ds{position:absolute;inset:0;background:rgba(0,0,0,.93);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:300}
+#ds h2{color:#f00;font-size:52px;letter-spacing:8px;text-shadow:0 0 30px #f00;margin-bottom:14px;animation:pulse 1.5s infinite}
+#ds p{color:#555;font-size:12px;letter-spacing:2px;margin-bottom:5px}
+#hint{position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid #300;color:#666;font-size:10px;letter-spacing:2px;padding:3px 14px;z-index:10;pointer-events:none;animation:fh 7s forwards}
+@keyframes fh{0%{opacity:1}75%{opacity:1}100%{opacity:0}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- LOBBY -->
+<div id="lobby">
+  <h1>DOOM.JS</h1>
+  <div class="sub">MULTIPLAYER · PEERJS WEBRTC · FREE P2P</div>
+  <div class="lcard">
+    <h2>YOUR NAME</h2>
+    <div class="row"><input id="nameIn" placeholder="YOUR NAME" maxlength="12" value="DOOM_GUY"></div>
+    <h2>CREATE ROOM</h2>
+    <div class="row">
+      <input id="roomIn" placeholder="ROOM CODE (leave blank = auto)">
+      <button class="btn" onclick="genCode()">⚄ GEN</button>
+    </div>
+    <div class="row">
+      <button class="btn" style="flex:1" onclick="createRoom(false)">🔓 PUBLIC</button>
+      <button class="btn" style="flex:1" onclick="createRoom(true)">🔒 PRIVATE</button>
+    </div>
+    <div class="divider">── OR JOIN ──</div>
+    <h2>JOIN BY CODE</h2>
+    <div class="row">
+      <input id="joinIn" placeholder="PASTE ROOM CODE / PEER ID">
+      <button class="btn go" onclick="joinRoom()">► JOIN</button>
+    </div>
+    <div class="divider">── PUBLIC ROOMS ──</div>
+    <div id="pubList"><div class="cm sy" style="padding:5px">No public rooms yet</div></div>
+    <div id="status"></div>
+    <div id="myid"></div>
+    <div class="tip">CLICK TO LOCK MOUSE · WASD=MOVE · MOUSE=AIM · CLICK/SPACE/F=SHOOT · T=CHAT</div>
+    <div style="margin-top:12px;border-top:1px solid #300;padding-top:12px">
+      <button class="btn go" style="width:100%;padding:10px;font-size:14px;letter-spacing:3px" onclick="soloPlay()">► PLAY SOLO NOW</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="gw">
+  <canvas id="gc"></canvas>
+  <div id="hud">
+    <div class="hb" id="hpHud">♥ 100</div>
+    <div class="hb" id="killHud">☠ 0</div>
+    <div class="hb" id="ammoHud">⚡ ∞</div>
+  </div>
+  <div id="hint">CLICK GAME TO LOCK MOUSE · SPACE / F / CLICK = SHOOT · T = CHAT</div>
+  <div id="rbar"></div>
+  <div id="plist"><div class="pt">PLAYERS</div></div>
+  <canvas id="mm" width="140" height="140"></canvas>
+  <div id="xhair">
+    <svg width="26" height="26" viewBox="0 0 26 26">
+      <line x1="13" y1="2" x2="13" y2="10" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
+      <line x1="13" y1="16" x2="13" y2="24" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
+      <line x1="2" y1="13" x2="10" y2="13" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
+      <line x1="16" y1="13" x2="24" y2="13" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
+      <circle cx="13" cy="13" r="1.8" fill="rgba(255,60,60,.95)"/>
+    </svg>
+  </div>
+  <div id="flash"></div>
+  <div id="kmsg"></div>
+  <div id="chatBox">
+    <div id="chatLog"></div>
+    <div id="crow">
+      <input id="cin" placeholder="T=chat · Enter=send · Esc=close">
+      <button id="csnd" onclick="sendChat()">▶</button>
+    </div>
+  </div>
+  <button id="shootBtn" onclick="shoot()">🔫</button>
+  <div id="ds">
+    <h2>YOU DIED</h2>
+    <p id="dkills"></p>
+    <p style="color:#400;margin-bottom:22px">BETTER LUCK IN HELL</p>
+    <button class="btn go" style="padding:13px 46px;font-size:15px;letter-spacing:3px" onclick="location.reload()">► RESPAWN</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// PROCEDURAL TEXTURE GENERATOR — brick walls, stone floor, blood ceil
+// ═══════════════════════════════════════════════════════════════════
+const T = 64; // texture size
+
+function mkTex(fn) {
+  const c = document.createElement('canvas');
+  c.width = c.height = T;
+  fn(c.getContext('2d'));
+  return c.getContext('2d').getImageData(0,0,T,T).data;
+}
+
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => { s = Math.imul(s ^ (s >>> 15), s | 1); s ^= s + Math.imul(s ^ (s >>> 7), s | 61); return ((s ^ (s >>> 14)) >>> 0) / 4294967296; };
+}
+
+// Brick wall
+const TEX_WALL = mkTex(ctx => {
+  const r = rng(42);
+  ctx.fillStyle = '#1e1208'; ctx.fillRect(0,0,T,T);
+  const bh = 10, off = [0,16,8];
+  for (let row = 0; row < T/bh+1; row++) {
+    const y = row*bh, dx = off[row%3];
+    for (let bx = dx-32; bx < T+32; bx += 32) {
+      const rv = r(), rb = 120+rv*50, rg = 40+rv*20, rr = 150+rv*40;
+      ctx.fillStyle=`rgb(${rr},${rb*.35|0},${rg*.5|0})`;
+      ctx.fillRect(bx+1,y+1,30,bh-2);
+      // mortar lines
+      ctx.fillStyle='rgba(200,180,150,0.18)';
+      ctx.fillRect(bx,y,1,bh);
+    }
+    ctx.fillStyle='rgba(200,180,150,0.2)'; ctx.fillRect(0,y,T,1);
+  }
+  // grime
+  for(let i=0;i<400;i++){const a=r()*.18;ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(r()*T,r()*T,r()<0.5?2:1,r()<0.5?2:1);}
+});
+
+// Darker side brick
+const TEX_WALL2 = mkTex(ctx => {
+  const r = rng(77);
+  ctx.fillStyle = '#110b05'; ctx.fillRect(0,0,T,T);
+  const bh = 10, off = [0,16,8];
+  for (let row = 0; row < T/bh+1; row++) {
+    const y = row*bh, dx = off[row%3];
+    for (let bx = dx-32; bx < T+32; bx += 32) {
+      const rv = r();
+      ctx.fillStyle=`rgb(${80+rv*30|0},${22+rv*10|0},${8+rv*8|0})`;
+      ctx.fillRect(bx+1,y+1,30,bh-2);
+      ctx.fillStyle='rgba(150,130,100,0.15)'; ctx.fillRect(bx,y,1,bh);
+    }
+    ctx.fillStyle='rgba(150,130,100,0.15)'; ctx.fillRect(0,y,T,1);
+  }
+  for(let i=0;i<300;i++){const a=r()*.15;ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(r()*T,r()*T,2,2);}
+});
+
+// Stone floor
+const TEX_FLOOR = mkTex(ctx => {
+  const r = rng(13);
+  ctx.fillStyle='#131313'; ctx.fillRect(0,0,T,T);
+  for(let ty=0;ty<T;ty+=16) for(let tx=0;tx<T;tx+=16){
+    const g=28+r()*22|0; ctx.fillStyle=`rgb(${g},${g},${g})`; ctx.fillRect(tx+1,ty+1,14,14);
+    // tile edge highlight
+    ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fillRect(tx+1,ty+1,14,1); ctx.fillRect(tx+1,ty+1,1,14);
+  }
+  for(let i=0;i<8;i++){
+    ctx.strokeStyle=`rgba(0,0,0,${0.25+r()*.25})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(r()*T,r()*T); ctx.lineTo(r()*T,r()*T); ctx.stroke();
+  }
+});
+
+// Blood ceiling
+const TEX_CEIL = mkTex(ctx => {
+  const r = rng(666);
+  ctx.fillStyle='#080000'; ctx.fillRect(0,0,T,T);
+  for(let i=0;i<600;i++){
+    const x=r()*T,y=r()*T,v=r()*10|0;
+    ctx.fillStyle=`rgb(${12+v},${1+v/8|0},${1+v/8|0})`; ctx.fillRect(x,y,2+r()*2,2+r()*2);
+  }
+  // blood drips
+  for(let i=0;i<10;i++){
+    const x=r()*T;
+    const h=4+r()*18|0;
+    const rv=r();
+    ctx.fillStyle=`rgba(${120+rv*80|0},0,0,${0.5+rv*.4})`;
+    ctx.fillRect(x,0,1+r()*3|0,h);
+    ctx.fillStyle=`rgba(${100+rv*60|0},0,0,0.6)`;
+    ctx.beginPath(); ctx.arc(x+1,h,2+r()*2,0,Math.PI*2); ctx.fill();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// MULTIPLAYER — PEERJS
+// ═══════════════════════════════════════════════════════════════════
+let peer=null,myId='',myName='DOOM_GUY';
+let roomCode='',isHost=false,isPrivate=false;
+let connections={},remotePlayers={},chatTyping=false,publicRooms={};
+
+function initPeer(cb){
+  // Try default PeerJS cloud (free), fallback to 0.peerjs.com
+  function tryServer(idx){
+    try{
+      const configs=[
+        {config:{'iceServers':[{urls:'stun:stun.l.google.com:19302'}]}},
+        {host:'0.peerjs.com',port:443,path:'/',secure:true,config:{'iceServers':[{urls:'stun:stun.l.google.com:19302'}]}}
+      ];
+      peer=new Peer(configs[idx]||configs[0]);
+      let opened=false;
+      peer.on('open',id=>{opened=true;myId=id;document.getElementById('myid').textContent='YOUR PEER ID: '+id;if(cb)cb(id);});
+      peer.on('connection',conn=>handleIncoming(conn));
+      peer.on('error',e=>{
+        if(!opened&&idx<1){setStatus('Trying backup server...');setTimeout(()=>tryServer(idx+1),600);}
+        else setStatus('Peer: '+e.type+' (playing offline is fine)');
+      });
+      // silent — server can be slow, that's fine
+    }catch(e){setStatus('Error: '+e.message);}
+  }
+  tryServer(0);
+}
+
+function setStatus(m){document.getElementById('status').textContent=m;}
+function genCode(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s='';for(let i=0;i<6;i++)s+=c[Math.floor(Math.random()*c.length)];
+  document.getElementById('roomIn').value=s;
+}
+function createRoom(priv){
+  myName=document.getElementById('nameIn').value.trim().toUpperCase()||'DOOM_GUY';
+  roomCode=document.getElementById('roomIn').value.trim().toUpperCase();
+  if(!roomCode){genCode();roomCode=document.getElementById('roomIn').value;}
+  isHost=true;isPrivate=priv;
+  setStatus('Connecting... (may take a few seconds)');
+  // Start game INSTANTLY — peer connects in background
+  startGame();
+  sysMsg('Room: '+roomCode+(priv?' [PRIVATE]':' [PUBLIC]'));
+  sysMsg('Connecting to PeerJS in background...');
+  updateRoomBar();
+  initPeer(id=>{
+    publicRooms[roomCode]={hostName:myName,hostPeerId:id,private:priv};
+    renderPubList();
+    setStatus((priv?'🔒':'🔓')+' Ready! Code: '+roomCode);
+    sysMsg('✓ Online! Peer ID: '+id);
+    document.getElementById('rbar').textContent=(priv?'🔒':'🔓')+' ROOM: '+roomCode+'  ·  SHARE: '+id.substring(0,12)+'...';
+  });
+}
+function joinRoom(code){
+  myName=document.getElementById('nameIn').value.trim().toUpperCase()||'DOOM_GUY';
+  roomCode=code||document.getElementById('joinIn').value.trim().toUpperCase();
+  if(!roomCode){setStatus('Enter a code!');return;}
+  setStatus('Connecting...');
+  // Start game instantly, connect in background
+  startGame();
+  sysMsg('Joining '+roomCode+'...');
+  initPeer(()=>{
+    const room=publicRooms[roomCode];
+    if(room)connectToHost(room.hostPeerId);
+    else{setStatus('Connecting to '+roomCode+'...');connectToHost(roomCode);}
+  });
+}
+function connectToHost(hid){
+  const conn=peer.connect(hid,{metadata:{name:myName,room:roomCode},reliable:true});
+  let ok=false;
+  conn.on('open',()=>{
+    ok=true;connections[conn.peer]=conn;
+    conn.on('data',d=>handleData(conn.peer,d));
+    conn.on('close',()=>{sysMsg('Host disconnected');delete connections[conn.peer];delete remotePlayers[conn.peer];updatePList();});
+    setStatus('✓ Connected!');isHost=false;startGame();sysMsg('Joined: '+roomCode);updateRoomBar();broadcastState();
+  });
+  conn.on('error',e=>sysMsg('⚠ Connect failed: '+e));
+  // silent timeout — peer will connect when ready
+}
+function handleIncoming(conn){
+  conn.on('open',()=>{
+    connections[conn.peer]=conn;
+    const name=conn.metadata?.name||'PLAYER';
+    remotePlayers[conn.peer]={x:4*64,y:4*64,angle:0,name,health:100,kills:0};
+    conn.on('data',d=>handleData(conn.peer,d));
+    conn.on('close',()=>{sysMsg((remotePlayers[conn.peer]?.name||'PLAYER')+' left');delete connections[conn.peer];delete remotePlayers[conn.peer];updatePList();});
+    sysMsg(name+' joined!');broadcast({type:'peer_joined',peerId:conn.peer,name},conn.peer);
+    conn.send({type:'room_info',roomCode});updatePList();
+  });
+}
+function handleData(pid,d){
+  if(!d?.type)return;
+  if(d.type==='state'){
+    if(!remotePlayers[pid])remotePlayers[pid]={name:d.name,health:100,kills:0};
+    Object.assign(remotePlayers[pid],{x:d.x,y:d.y,angle:d.angle,health:d.health,kills:d.kills,name:d.name});
+    if(isHost)broadcast(d,pid);updatePList();
+  }else if(d.type==='chat'){addChat(d.name,d.msg);if(isHost)broadcast(d,pid);}
+  else if(d.type==='hit'){player.health=Math.max(0,player.health-d.dmg);document.getElementById('hpHud').textContent='♥ '+player.health;trigFlash();if(player.health<=0)showDeath();}
+  else if(d.type==='room_info'){roomCode=d.roomCode;updateRoomBar();}
+  else if(d.type==='peer_joined'){if(!remotePlayers[d.peerId])remotePlayers[d.peerId]={x:4*64,y:4*64,angle:0,name:d.name,health:100,kills:0};sysMsg(d.name+' joined!');updatePList();}
+  else if(d.type==='shoot'&&isHost)broadcast(d,pid);
+}
+function broadcast(data,excl){for(const pid in connections)if(pid!==excl)try{connections[pid].send(data);}catch(e){}}
+function broadcastState(){broadcast({type:'state',x:player.x,y:player.y,angle:player.angle,health:player.health,kills:player.kills,name:myName});}
+function sendChat(){const el=document.getElementById('cin'),msg=el.value.trim();if(!msg)return;addChat(myName,msg,true);broadcast({type:'chat',name:myName,msg});el.value='';chatTyping=false;}
+function addChat(name,msg,mine){
+  const log=document.getElementById('chatLog'),d=document.createElement('div');d.className='cm';
+  d.innerHTML='<span class="cn" style="color:'+(mine?'#f44':'#f88')+'">'+esc(name)+':</span> '+esc(msg);
+  log.appendChild(d);log.scrollTop=log.scrollHeight;
+}
+function sysMsg(msg){const log=document.getElementById('chatLog'),d=document.createElement('div');d.className='cm sy';d.textContent='◆ '+msg;log.appendChild(d);log.scrollTop=log.scrollHeight;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function updatePList(){
+  const el=document.getElementById('plist');
+  el.innerHTML='<div class="pt">PLAYERS ('+(1+Object.keys(remotePlayers).length)+')</div>';
+  el.innerHTML+='<div class="pe"><span class="pn">► '+myName+'</span><span style="color:#555">☠'+player.kills+'</span></div>';
+  for(const pid in remotePlayers){const rp=remotePlayers[pid];el.innerHTML+='<div class="pe"><span class="pn">◆ '+esc(rp.name||'P')+'</span><span style="color:#555">☠'+(rp.kills||0)+'</span></div>';}
+}
+function updateRoomBar(){document.getElementById('rbar').textContent=(isPrivate?'🔒':'🔓')+' ROOM: '+roomCode+'  ·  SHARE THIS CODE!';}
+function renderPubList(){
+  const el=document.getElementById('pubList'),pub=Object.values(publicRooms).filter(r=>!r.private);
+  if(!pub.length){el.innerHTML='<div class="cm sy" style="padding:5px">No public rooms</div>';return;}
+  el.innerHTML=pub.map(r=>`<div class="ri" onclick="joinRoom('${r.hostPeerId}')"><span class="rn">${esc(r.hostName)}</span><span class="rm">${r.code||''}</span></div>`).join('');
+}
+function soloPlay(){
+  myName=document.getElementById('nameIn').value.trim().toUpperCase()||'DOOM_GUY';
+  roomCode='SOLO';isHost=true;isPrivate=true;startGame();
+  sysMsg('Solo mode — no network needed!');
+  document.getElementById('rbar').textContent='🎮 SOLO — '+myName;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME ENGINE — DDA Raycaster with proper textures
+// ═══════════════════════════════════════════════════════════════════
+const MAP=[
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,1,1,0,0,1,0,0,1,1,0,0,0,1],
+  [1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,1,1,1,1,1,0,0,0,0,0,1],
+  [1,1,0,0,0,1,0,0,0,1,0,0,0,1,1,1],
+  [1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+  [1,0,0,1,1,0,0,1,0,0,1,1,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+const TILE=64,MAPW=16,MAPH=16,FOV=Math.PI/3,HFOV=FOV/2;
+
+let player={x:2.5*64,y:2.5*64,angle:0,health:100,kills:0};
+let enemies=[
+  {x:8.5*64,y:8.5*64,h:60,mh:60,alive:true,mt:0,spd:0.75},
+  {x:6.5*64,y:11.5*64,h:60,mh:60,alive:true,mt:0,spd:0.85},
+  {x:13.5*64,y:4.5*64,h:60,mh:60,alive:true,mt:0,spd:0.65},
+  {x:3.5*64,y:12.5*64,h:60,mh:60,alive:true,mt:0,spd:0.9},
+  {x:11.5*64,y:7.5*64,h:60,mh:60,alive:true,mt:0,spd:0.8},
+  {x:9.5*64,y:3.5*64,h:60,mh:60,alive:true,mt:0,spd:0.7},
+];
+let shots=[],eshots=[],keys={},fc=0,running=false;
+let flashT=0,mFlash=0,killT=0,stateT=0,bobT=0;
+
+const gc=document.getElementById('gc');
+const gctx=gc.getContext('2d');
+const mm=document.getElementById('mm');
+const mctx=mm.getContext('2d');
+
+function resize(){gc.width=window.innerWidth;gc.height=window.innerHeight;}
+window.addEventListener('resize',resize);
+
+// DDA ray cast
+function castRay(px,py,ang){
+  const rx=Math.cos(ang),ry=Math.sin(ang);
+  let mx=Math.floor(px/TILE),my=Math.floor(py/TILE);
+  const ddx=Math.abs(1/rx),ddy=Math.abs(1/ry);
+  let sx,sy,sdx,sdy;
+  if(rx<0){sx=-1;sdx=(px/TILE-mx)*ddx;}else{sx=1;sdx=(mx+1-px/TILE)*ddx;}
+  if(ry<0){sy=-1;sdy=(py/TILE-my)*ddy;}else{sy=1;sdy=(my+1-py/TILE)*ddy;}
+  let side=0;
+  for(let i=0;i<80;i++){
+    if(sdx<sdy){sdx+=ddx;mx+=sx;side=0;}else{sdy+=ddy;my+=sy;side=1;}
+    if(mx<0||my<0||mx>=MAPW||my>=MAPH)return{dist:80*TILE,side,wx:0};
+    if(MAP[my][mx]===1){
+      let dist=side===0?(mx-px/TILE+(1-sx)/2)/rx*TILE:(my-py/TILE+(1-sy)/2)/ry*TILE;
+      dist=Math.max(0.5,dist);
+      let wx=side===0?((py+dist*(ry/TILE)*TILE)/TILE)%1:((px+dist*(rx/TILE)*TILE)/TILE)%1;
+      if(wx<0)wx+=1;
+      return{dist,side,wx};
+    }
+  }
+  return{dist:80*TILE,side:0,wx:0};
+}
+
+// Full software renderer
+function render(){
+  const W=gc.width,H=gc.height;
+  if(!W||!H)return;
+  const img=gctx.createImageData(W,H);
+  const buf=img.data;
+  const halfH=H>>1;
+  const zBuf=new Float32Array(W);
+
+  for(let col=0;col<W;col++){
+    const rayAng=player.angle-HFOV+(col/W)*FOV;
+    const hit=castRay(player.x,player.y,rayAng);
+    const cd=hit.dist*Math.cos(rayAng-player.angle);
+    zBuf[col]=cd;
+    const wallH=Math.min(H*3,(TILE*H)/cd)|0;
+    const wTop=((H-wallH)>>1);
+    const wBot=wTop+wallH;
+    const texData=hit.side===0?TEX_WALL:TEX_WALL2;
+    const texX=(hit.wx*T&(T-1));
+    const bright=Math.max(0.08,1-cd/(MAPW*TILE*0.65))*(hit.side===1?0.68:1.0);
+
+    for(let row=0;row<H;row++){
+      const pi=(row*W+col)<<2;
+      if(row>=wTop&&row<wBot){
+        const texY=((((row-wTop)/wallH)*T)|0)&(T-1);
+        const ti=(texY*T+texX)<<2;
+        buf[pi  ]=texData[ti  ]*bright;
+        buf[pi+1]=texData[ti+1]*bright;
+        buf[pi+2]=texData[ti+2]*bright;
+        buf[pi+3]=255;
+      } else if(row<wTop){
+        // ceiling
+        const rowD=row-halfH;
+        const rowDist=halfH/(wTop-row+0.01)*cd/TILE;
+        const fx=(player.x/TILE+Math.cos(rayAng)*rowDist);
+        const fy=(player.y/TILE+Math.sin(rayAng)*rowDist);
+        const tx=(Math.abs(fx*T)|0)&(T-1);
+        const ty=(Math.abs(fy*T)|0)&(T-1);
+        const ti=(ty*T+tx)<<2;
+        const cb=Math.max(0.04,0.38*(1-row/halfH));
+        buf[pi  ]=TEX_CEIL[ti  ]*cb;
+        buf[pi+1]=TEX_CEIL[ti+1]*cb;
+        buf[pi+2]=TEX_CEIL[ti+2]*cb;
+        buf[pi+3]=255;
+      } else {
+        // floor
+        const rowDist=halfH/(row-halfH+0.01)*cd/TILE;
+        const fx=(player.x/TILE+Math.cos(rayAng)*rowDist);
+        const fy=(player.y/TILE+Math.sin(rayAng)*rowDist);
+        const tx=(Math.abs(fx*T)|0)&(T-1);
+        const ty=(Math.abs(fy*T)|0)&(T-1);
+        const ti=(ty*T+tx)<<2;
+        const fb=Math.max(0.04,0.5*((row-halfH)/halfH));
+        buf[pi  ]=TEX_FLOOR[ti  ]*fb;
+        buf[pi+1]=TEX_FLOOR[ti+1]*fb;
+        buf[pi+2]=TEX_FLOOR[ti+2]*fb;
+        buf[pi+3]=255;
+      }
+    }
+  }
+  gctx.putImageData(img,0,0);
+
+  // sprites
+  const sprites=[];
+  for(const e of enemies)if(e.alive)sprites.push({isP:false,obj:e});
+  for(const pid in remotePlayers)sprites.push({isP:true,obj:remotePlayers[pid]});
+  sprites.sort((a,b)=>Math.hypot(b.obj.x-player.x,b.obj.y-player.y)-Math.hypot(a.obj.x-player.x,a.obj.y-player.y));
+  for(const sp of sprites)drawSprite(sp.obj,sp.isP,zBuf,W,H);
+
+  drawWeapon(W,H);
+}
+
+function drawSprite(obj,isPlayer,zBuf,W,H){
+  const dx=obj.x-player.x,dy=obj.y-player.y,dist=Math.hypot(dx,dy);
+  let ang=Math.atan2(dy,dx)-player.angle;
+  while(ang<-Math.PI)ang+=Math.PI*2;while(ang>Math.PI)ang-=Math.PI*2;
+  if(Math.abs(ang)>HFOV+0.4)return;
+  const scX=((ang/FOV)+0.5)*W;
+  const cd=dist*Math.cos(ang);if(cd<=0)return;
+  const sH=Math.min(H*1.9,(TILE*H)/cd)|0;
+  const sW=(sH*(isPlayer?0.48:0.58))|0;
+  const top=((H-sH)>>1),left=(scX-sW/2)|0;
+  // occlusion check
+  let blk=0,tot=0;
+  for(let c=Math.max(0,left);c<Math.min(W,left+sW);c+=3){if(zBuf[c]<cd)blk++;tot++;}
+  if(tot>0&&blk/tot>0.87)return;
+  const br=Math.max(0.1,1-dist/(MAPW*TILE*0.9));
+  gctx.save();gctx.globalAlpha=br;
+  if(isPlayer){
+    gctx.fillStyle='#1d5c1d';gctx.fillRect(left+sW*.22,top+sH*.1,sW*.56,sH*.42);
+    gctx.fillStyle='#2d8a2d';gctx.fillRect(left+sW*.3,top+sH*.04,sW*.4,sH*.22);
+    gctx.fillStyle='#00ff88';gctx.fillRect(left+sW*.33,top+sH*.07,sW*.34,sH*.1);
+    gctx.fillStyle='#164f16';gctx.fillRect(left+sW*.12,top+sH*.49,sW*.22,sH*.38);gctx.fillRect(left+sW*.66,top+sH*.49,sW*.22,sH*.38);
+    if(obj.name){gctx.globalAlpha=.95;gctx.fillStyle='rgba(0,0,0,0.75)';gctx.fillRect(left-2,top-22,sW+4,16);gctx.fillStyle='#00ff88';gctx.font='bold 10px Courier New';gctx.textAlign='center';gctx.fillText(obj.name,left+sW/2,top-9);}
+  }else{
+    gctx.fillStyle='#7a0000';gctx.fillRect(left+sW*.2,top+sH*.1,sW*.6,sH*.42);
+    gctx.fillStyle='#bb3300';gctx.fillRect(left+sW*.3,top+sH*.04,sW*.4,sH*.22);
+    gctx.fillStyle='#ff1111';gctx.fillRect(left+sW*.33,top+sH*.08,sW*.11,sH*.08);gctx.fillRect(left+sW*.54,top+sH*.08,sW*.11,sH*.08);
+    gctx.fillStyle='#550000';gctx.fillRect(left+sW*.1,top+sH*.48,sW*.22,sH*.38);gctx.fillRect(left+sW*.68,top+sH*.48,sW*.22,sH*.38);
+    gctx.fillStyle='#440000';gctx.fillRect(left+sW*.04,top+sH*.14,sW*.2,sH*.3);gctx.fillRect(left+sW*.76,top+sH*.14,sW*.2,sH*.3);
+    gctx.fillStyle='#1a0000';gctx.fillRect(left+sW*.28,top,sW*.08,sH*.06);gctx.fillRect(left+sW*.64,top,sW*.08,sH*.06);
+    // hp bar
+    gctx.globalAlpha=0.88;gctx.fillStyle='#2a0000';gctx.fillRect(left,top-10,sW,5);
+    gctx.fillStyle=obj.h>obj.mh*0.5?'#00cc00':'#ff3300';gctx.fillRect(left,top-10,sW*(obj.h/obj.mh),5);
+  }
+  gctx.restore();
+}
+
+function drawWeapon(W,H){
+  const moving=Object.values(keys).some(v=>v);
+  bobT+=moving?0.13:0.04;
+  const bob=Math.sin(bobT)*6*(moving?1:0.15);
+  const wh=Math.min(250,H*0.38)|0,ww=(wh*0.72)|0;
+  const wx=W/2-ww/2+Math.sin(bobT*.5)*2,wy=H-wh+Math.abs(bob)+2;
+  // shadow
+  gctx.fillStyle='rgba(0,0,0,0.35)';gctx.fillRect(wx+ww*.32,wy+wh*.08+5,ww*.4,wh*.92);
+  // barrel tube
+  gctx.fillStyle='#3e3e3e';gctx.fillRect(wx+ww*.37,wy+wh*.04,ww*.26,wh*.9);
+  // barrel highlight
+  gctx.fillStyle='#5a5a5a';gctx.fillRect(wx+ww*.37,wy+wh*.04,ww*.05,wh*.9);
+  // receiver body
+  gctx.fillStyle='#4a4a4a';gctx.fillRect(wx+ww*.28,wy+wh*.3,ww*.44,wh*.18);
+  gctx.fillStyle='#555';gctx.fillRect(wx+ww*.28,wy+wh*.3,ww*.44,wh*.04);
+  // front sight
+  gctx.fillStyle='#777';gctx.fillRect(wx+ww*.44,wy+wh*.01,ww*.12,wh*.055);
+  // muzzle
+  gctx.fillStyle='#222';gctx.fillRect(wx+ww*.42,wy,ww*.16,wh*.06);
+  // grip
+  gctx.fillStyle='#2a1a0a';gctx.fillRect(wx+ww*.37,wy+wh*.66,ww*.26,wh*.36);
+  gctx.fillStyle='#1a0e05';gctx.fillRect(wx+ww*.39,wy+wh*.68,ww*.05,wh*.33);
+  // trigger
+  gctx.strokeStyle='#404040';gctx.lineWidth=3;
+  gctx.beginPath();gctx.arc(wx+ww*.5,wy+wh*.56,ww*.1,0,Math.PI);gctx.stroke();
+  // muzzle flash
+  if(mFlash>0){
+    mFlash--;
+    gctx.save();
+    const fl=gctx.createRadialGradient(wx+ww*.5,wy+wh*.03,1,wx+ww*.5,wy-wh*.05,ww*.45);
+    fl.addColorStop(0,'rgba(255,240,120,0.98)');fl.addColorStop(0.35,'rgba(255,130,20,0.8)');fl.addColorStop(1,'rgba(255,40,0,0)');
+    gctx.fillStyle=fl;
+    gctx.beginPath();gctx.ellipse(wx+ww*.5,wy,ww*.4,wh*.25,0,0,Math.PI*2);gctx.fill();
+    // sparks
+    for(let i=0;i<6;i++){
+      const sa=(Math.random()-.5)*1.4-Math.PI/2;
+      gctx.strokeStyle=`rgba(255,${150+Math.random()*100|0},0,0.8)`;
+      gctx.lineWidth=1;gctx.beginPath();
+      gctx.moveTo(wx+ww*.5,wy);
+      gctx.lineTo(wx+ww*.5+Math.cos(sa)*(20+Math.random()*30),wy+Math.sin(sa)*(20+Math.random()*30));
+      gctx.stroke();
+    }
+    gctx.restore();
+  }
+}
+
+// minimap
+function renderMM(){
+  const S=8;
+  mctx.fillStyle='rgba(0,0,0,0.85)';mctx.fillRect(0,0,140,140);
+  for(let y=0;y<MAPH;y++)for(let x=0;x<MAPW;x++){
+    mctx.fillStyle=MAP[y][x]?'#882200':'#111';mctx.fillRect(x*S+1,y*S+1,S-1,S-1);
+  }
+  for(const e of enemies){if(!e.alive)continue;mctx.fillStyle='#ff6600';mctx.fillRect((e.x/TILE)*S+S/2-2,(e.y/TILE)*S+S/2-2,5,5);}
+  for(const rp of Object.values(remotePlayers)){mctx.fillStyle='#00ff88';mctx.fillRect((rp.x/TILE)*S+S/2-3,(rp.y/TILE)*S+S/2-3,7,7);}
+  const px=(player.x/TILE)*S+S/2,py=(player.y/TILE)*S+S/2;
+  mctx.fillStyle='#00eeff';mctx.beginPath();mctx.arc(px,py,5,0,Math.PI*2);mctx.fill();
+  mctx.strokeStyle='#00eeff';mctx.lineWidth=2;mctx.beginPath();mctx.moveTo(px,py);mctx.lineTo(px+Math.cos(player.angle)*13,py+Math.sin(player.angle)*13);mctx.stroke();
+}
+
+// enemy AI
+function updateEnemies(){
+  for(const e of enemies){
+    if(!e.alive)continue;
+    const dx=player.x-e.x,dy=player.y-e.y,dist=Math.hypot(dx,dy);
+    e.mt++;
+    if(e.mt%85===0&&dist<500)eshots.push({x:e.x,y:e.y,angle:Math.atan2(dy,dx),spd:3.5,alive:true});
+    if(dist>50){
+      const nx=e.x+(dx/dist)*e.spd,ny=e.y+(dy/dist)*e.spd;
+      if(MAP[Math.floor(ny/TILE)]&&MAP[Math.floor(ny/TILE)][Math.floor(e.x/TILE)]===0)e.y=ny;
+      if(MAP[Math.floor(e.y/TILE)]&&MAP[Math.floor(e.y/TILE)][Math.floor(nx/TILE)]===0)e.x=nx;
+    }
+  }
+}
+
+function shoot(){
+  if(!running)return;
+  shots.push({x:player.x,y:player.y,angle:player.angle,spd:9,alive:true});
+  mFlash=5;
+  broadcast({type:'shoot',x:player.x,y:player.y,angle:player.angle,name:myName});
+}
+
+function updateShots(){
+  for(const s of shots){
+    if(!s.alive)continue;
+    s.x+=Math.cos(s.angle)*s.spd;s.y+=Math.sin(s.angle)*s.spd;
+    const mx=Math.floor(s.x/TILE),my=Math.floor(s.y/TILE);
+    if(!MAP[my]||MAP[my][mx]===1){s.alive=false;continue;}
+    for(const e of enemies){if(!e.alive)continue;if(Math.hypot(e.x-s.x,e.y-s.y)<28){e.h-=25;s.alive=false;if(e.h<=0){e.alive=false;player.kills++;document.getElementById('killHud').textContent='☠ '+player.kills;showKill();updatePList();}break;}}
+    if(!s.alive)continue;
+    for(const pid in remotePlayers){const rp=remotePlayers[pid];if(Math.hypot(rp.x-s.x,rp.y-s.y)<28){s.alive=false;try{connections[pid].send({type:'hit',dmg:15,from:myName});}catch(ex){}break;}}
+  }
+  shots=shots.filter(s=>s.alive);
+  for(const s of eshots){
+    if(!s.alive)continue;
+    s.x+=Math.cos(s.angle)*s.spd;s.y+=Math.sin(s.angle)*s.spd;
+    const mx=Math.floor(s.x/TILE),my=Math.floor(s.y/TILE);
+    if(!MAP[my]||MAP[my][mx]===1){s.alive=false;continue;}
+    if(Math.hypot(player.x-s.x,player.y-s.y)<22){player.health=Math.max(0,player.health-8);document.getElementById('hpHud').textContent='♥ '+player.health;s.alive=false;trigFlash();if(player.health<=0)showDeath();}
+  }
+  eshots=eshots.filter(s=>s.alive);
+}
+
+function trigFlash(){const f=document.getElementById('flash');f.style.opacity=0.5;flashT=12;}
+function showKill(){const el=document.getElementById('kmsg');el.textContent=['DEMON SLAIN!','RIPPED!','OBLITERATED!','ANNIHILATED!'][fc%4];el.style.opacity=1;killT=90;}
+function showDeath(){running=false;document.getElementById('ds').style.display='flex';document.getElementById('dkills').textContent='KILLS: '+player.kills;}
+
+function movePlayer(){
+  const sp=2.4;let dx=0,dy=0;
+  if(keys['w']||keys['arrowup']){dx+=Math.cos(player.angle)*sp;dy+=Math.sin(player.angle)*sp;}
+  if(keys['s']||keys['arrowdown']){dx-=Math.cos(player.angle)*sp;dy-=Math.sin(player.angle)*sp;}
+  if(keys['a']){dx+=Math.cos(player.angle-Math.PI/2)*sp;dy+=Math.sin(player.angle-Math.PI/2)*sp;}
+  if(keys['d']){dx-=Math.cos(player.angle-Math.PI/2)*sp;dy-=Math.sin(player.angle-Math.PI/2)*sp;}
+  if(keys['arrowleft'])player.angle-=0.046;
+  if(keys['arrowright'])player.angle+=0.046;
+  const R=13,nx=player.x+dx,ny=player.y+dy;
+  if(MAP[Math.floor((ny+R)/TILE)]&&MAP[Math.floor((ny+R)/TILE)][Math.floor(player.x/TILE)]===0&&MAP[Math.floor((ny-R)/TILE)]&&MAP[Math.floor((ny-R)/TILE)][Math.floor(player.x/TILE)]===0)player.y=ny;
+  if(MAP[Math.floor(player.y/TILE)]&&MAP[Math.floor(player.y/TILE)][Math.floor((nx+R)/TILE)]===0&&MAP[Math.floor(player.y/TILE)]&&MAP[Math.floor(player.y/TILE)][Math.floor((nx-R)/TILE)]===0)player.x=nx;
+}
+
+function startGame(){
+  resize();document.getElementById('lobby').style.display='none';document.getElementById('gw').style.display='block';
+  running=true;updatePList();requestAnimationFrame(loop);
+}
+function loop(){
+  if(!running)return;fc++;
+  movePlayer();if(isHost)updateEnemies();updateShots();
+  render();renderMM();
+  if(flashT>0){flashT--;if(flashT===0)document.getElementById('flash').style.opacity=0;}
+  if(killT>0){killT--;if(killT===0)document.getElementById('kmsg').style.opacity=0;}
+  stateT++;if(stateT%3===0)broadcastState();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='t'&&running&&!chatTyping){e.preventDefault();chatTyping=true;document.getElementById('cin').focus();return;}
+  if(chatTyping){if(k==='enter'){sendChat();chatTyping=false;}if(k==='escape'){chatTyping=false;document.getElementById('cin').blur();}return;}
+  keys[k]=true;
+  if((k===' '||k==='f')&&running){e.preventDefault();shoot();}
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+document.addEventListener('mousemove',e=>{if(!running||chatTyping)return;player.angle+=(e.movementX||0)*0.0022;});
+gc.addEventListener('click',e=>{if(!running)return;gc.requestPointerLock&&gc.requestPointerLock();if(!chatTyping)shoot();});
+document.getElementById('cin').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){sendChat();chatTyping=false;}if(e.key==='Escape'){chatTyping=false;document.getElementById('cin').blur();}});
+</script>
+<!-- PeerJS via jsdelivr (free CDN, allowlisted) -->
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" onerror="console.warn('PeerJS unavailable — solo mode still works fine')"></script>
+</body>
+</html>
